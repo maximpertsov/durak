@@ -3,7 +3,7 @@ use "Card.sml";
 signature TABLE =
 sig
     type table = (Card.card * Card.card option) list
-    type player = {name: string, hand: Card.card list}
+    type player
     val attack : Card.card -> player -> table -> table
 end
 
@@ -31,8 +31,14 @@ fun allCards tbl =
 	  | (atk, SOME def)::tbl' => loop (tbl', def::atk::acc)
 	  | (atk, NONE)::tbl'     => loop (tbl', atk::acc)
     in
-	loop(tbl, [])
+	loop (tbl, [])
     end
+
+(* player info functions *)
+fun name (p : player) = #name p
+fun hand (p : player) = #hand p
+    
+fun numExcessCards p tbl = (length o hand) p - (length o unbeatenCards) tbl
 
 (* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk' if 'c' is the same suit and higher rank than 'atk', or if 'c' has the trump suit *)
 fun beats c atk trump =
@@ -45,8 +51,8 @@ fun beats c atk trump =
 (* play a card that another player has to beat. Can only play card if:
 1. The field is empty
 2. The rank of the attacking card is already on the field AND the defending player has more cards in their hand than there are unbeaten cards already on the table *)
-fun attack c (p : player) tbl =
-    (if length (#hand p) > length (unbeatenCards tbl) then
+fun attack c p tbl =
+    (if numExcessCards p tbl > 0 then
 	 case tbl of
 	     [] => (c, NONE)::tbl
 	   | _  => if Card.hasRank c (allCards tbl) then
@@ -55,7 +61,7 @@ fun attack c (p : player) tbl =
 		       raise MissingRank
      else
 	 raise NotEnoughCards)
-    handle NotEnoughCards => (print "Player does not have enough cards to defend against this attack!"; tbl)
+    handle NotEnoughCards => (print ((#name p) ^ " does not have enough cards to defend against this attack!"); tbl)
 	 | MissingRank    => (print "This rank has not been played yet! You can only attack with ranks that have already been played during this round."; tbl)
 end
 
@@ -63,5 +69,8 @@ end
 val d = Card.shuffledDeck()
 val dStr = Card.toStrings d
 
-val p = {name= "Max", hand= List.take (d, 6)}
+val p1 = {name= "Max", hand= List.take (d, 6)}
 val d' = List.drop (d, 6)
+	     
+val p2  = {name= "Rishi", hand= List.take (d', 6)}
+val d'' = List.drop (d', 6)

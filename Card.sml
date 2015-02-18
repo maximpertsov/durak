@@ -1,9 +1,12 @@
 signature CARD =
 sig
+    datatype suit = Spades | Clubs | Diamonds | Hearts
     type card
     val sameSuit : card -> card -> bool
     val sameRank : card -> card -> bool
     val sameCard : card -> card -> bool
+    val hasRank : card -> card list -> bool
+    val suit : card -> suit
     val value : card -> int
     val compareRank : card -> card -> order
     val toString   : card -> string
@@ -17,7 +20,7 @@ struct
 
 datatype rank = Ace | King | Queen | Jack | Num of int
 datatype suit = Spades | Clubs | Diamonds | Hearts
-type card = rank * suit
+type card     = rank * suit
 
 exception NotACard
 		       
@@ -29,7 +32,7 @@ fun range i j =
 	List.tabulate(j-i+1, (fn x => x+i))
 
 fun lookup k zip =
-    case List.find (fn (k',v) => k' = k) zip of
+    case List.find (fn (k',_) => k' = k) zip of
 	SOME (k,v) => SOME v
       | NONE       => NONE
 			  
@@ -82,7 +85,7 @@ val ranks       = [Ace, King, Queen, Jack] @ map Num (range 10 2)
 val rankStrings = ["A", "K", "Q", "J"] @ map Int.toString (range 10 2)
 val rankStrMap  = ListPair.zip(ranks, rankStrings)
 val rankValus   = range 14 2
-val rankValuMap = ListPair.zip(ranks, rankValues)
+val rankValuMap = ListPair.zip(ranks, rankValus)
 
 (* suits and associated string representations *)
 val suits       = [Spades, Diamonds, Clubs, Hearts]
@@ -94,6 +97,12 @@ fun sameSuit (r1, s1) (r2, s2) = s1 = s2
 fun sameRank (r1, s1) (r2, s2) = r1 = r2
 fun sameCard c1 c2 = (sameSuit c1 c2) andalso (sameRank c1 c2)
 
+(* check if a card's rank exists in a list of cards *)
+fun hasRank c = List.exists (fn c' => sameRank c c')
+
+(* get card suit *)
+fun suit (r, s) = s
+						  
 (* calculate card value *)
 fun value (r, s) =
     case lookup r rankValuMap of
@@ -121,9 +130,7 @@ fun printCards cardsPerLine =
 
 (* deck generation *)
 val fullDeck = foldl op@ [] (map (fn s => (map (fn r => (r, s)) ranks)) suits)
-
 fun shuffled cs = randomSelect (length cs) cs
-			     
 fun shuffledDeck () = shuffled fullDeck			      
 		     
 end	      
