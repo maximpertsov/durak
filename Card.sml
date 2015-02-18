@@ -2,16 +2,19 @@ signature CARD =
 sig
     datatype suit = Spades | Clubs | Diamonds | Hearts
     type card
+    val Card : int * suit -> card
     val sameSuit : card -> card -> bool
     val sameRank : card -> card -> bool
-    val sameCard : card -> card -> bool
+    val same : card -> card -> bool
     val hasRank : card -> card list -> bool
+    val find : card -> card list -> card option
+    val remove : card -> card list -> card list
     val suit : card -> suit
     val value : card -> int
     val compareRank : card -> card -> order
     val toString   : card -> string
     val toStrings  : card list -> string
-    val printCards : int -> card list -> unit
+    val toStrings' : int -> card list -> unit
     val shuffledDeck : unit -> card list
 end
 
@@ -31,7 +34,7 @@ fun range i j =
     else
 	List.tabulate(j-i+1, (fn x => x+i))
 
-fun lookup k zip =
+fun mapFind k zip =
     case List.find (fn (k',_) => k' = k) zip of
 	SOME (k,v) => SOME v
       | NONE       => NONE
@@ -78,34 +81,44 @@ fun listsOfN n xs =
 			  end
     in
 	(rev o loop) (n, xs, [], [])
-    end				     
-	
+    end
+		
 (* ranks, associated string representations, and associated values *)
 val ranks       = [Ace, King, Queen, Jack] @ map Num (range 10 2)
 val rankStrings = ["A", "K", "Q", "J"] @ map Int.toString (range 10 2)
 val rankStrMap  = ListPair.zip(ranks, rankStrings)
 val rankValus   = range 14 2
 val rankValuMap = ListPair.zip(ranks, rankValus)
+val valuRankMap = ListPair.zip(rankValus, ranks)
 
 (* suits and associated string representations *)
 val suits       = [Spades, Diamonds, Clubs, Hearts]
 val suitStrings = ["S", "D", "C", "H"] (* ["♠", "♦", "♣", "♥"] *)    
 val suitStrMap  = ListPair.zip(suits, suitStrings)
-
+			      
 (* card comparisons *)
 fun sameSuit (r1, s1) (r2, s2) = s1 = s2
 fun sameRank (r1, s1) (r2, s2) = r1 = r2
-fun sameCard c1 c2 = (sameSuit c1 c2) andalso (sameRank c1 c2)
+fun same c1 c2 = (sameSuit c1 c2) andalso (sameRank c1 c2)
 
-(* check if a card's rank exists in a list of cards *)
+(* check if a list of cards contains the rank of a certain card *)
 fun hasRank c = List.exists (fn c' => sameRank c c')
 
+(* find and remove cards from a list *)
+fun find c = List.find (fn c' => same c c') 
+fun remove c' cs = 
+    case cs of
+	[]     => []
+      | c::cs' => if   same c' c
+		  then cs'
+		  else c::(remove c' cs')
+			  
 (* get card suit *)
 fun suit (r, s) = s
 						  
 (* calculate card value *)
 fun value (r, s) =
-    case lookup r rankValuMap of
+    case mapFind r rankValuMap of
 	SOME v => v
       | NONE   => raise NotACard
 
@@ -118,19 +131,28 @@ fun compareRank c1 c2 =
 
 (* convert cards to strings and printing functions *)
 fun toString (r, s) =
-    case (lookup r rankStrMap, lookup s suitStrMap) of
+    case (mapFind r rankStrMap, mapFind s suitStrMap) of
 	(NONE, _)          => raise NotACard
       | (_, NONE)          => raise NotACard
       | (SOME r', SOME s') => r' ^ s'
 
 val toStrings = (String.concatWith " ") o (map toString)
 		      
-fun printCards cardsPerLine =
+fun toStrings' cardsPerLine =
     print o String.concat o (map (fn s => toStrings s ^ "\n")) o (listsOfN cardsPerLine)
 
 (* deck generation *)
 val fullDeck = foldl op@ [] (map (fn s => (map (fn r => (r, s)) ranks)) suits)
 fun shuffled cs = randomSelect (length cs) cs
-fun shuffledDeck () = shuffled fullDeck			      
+fun shuffledDeck () = shuffled fullDeck
+
+(* card constructor *)
+fun Card (n, s) =
+    case mapFind n valuRankMap of
+	SOME r => let val c = (r, s)
+		  in
+		      print (toString c ^ "\n"); c
+		  end
+      | NONE   => raise NotACard
 		     
 end	      
