@@ -106,12 +106,12 @@ fun hasRank c = List.exists (fn c' => sameRank c c')
 
 (* find and remove cards from a list *)
 fun find c = List.find (fn c' => same c c') 
-fun remove c' cs = 
+fun remove c cs = 
     case cs of
-	[]     => []
-      | c::cs' => if   same c' c
-		  then cs'
-		  else c::(remove c' cs')
+	[]      => []
+      | c'::cs' => if   same c c'
+		   then cs'
+		   else c'::(remove c cs')
 			  
 (* get card suit *)
 fun suit (r, s) = s
