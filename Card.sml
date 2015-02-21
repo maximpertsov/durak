@@ -147,60 +147,9 @@ fun shuffled cs = randomSelect (length cs) cs
 fun shuffledDeck () = shuffled fullDeck
 
 (* card constructor *)
-fun Card (n, s) =
-    case mapFind n valuRankMap of
-	SOME r => let val c = (r, s)
-		  in
-		      print (toString c ^ "\n"); c
-		  end
+fun Card (i, s) =
+    case mapFind i valuRankMap of
+	SOME r => (r, s)
       | NONE   => raise NotACard
 			
-end	      
-
-(* Tests *)
-local
-    (* variables *)
-    val JH =   Card.Card (11, Card.Hearts)
-    val SixH = Card.Card (6, Card.Hearts)
-    val SixS = Card.Card (6, Card.Spades)
-    (* tests *)
-    fun compareCardOpts (a,b) =
-	case (a,b) of (SOME a', SOME b') => Card.same a' b' | _ => false
-    fun runTests name compf f inps exps =
-	(name, ListPair.allEq compf ((map f inps), exps))
-    val tests = 
-	[runTests "sameSuit" op=
-		 (fn (c1, c2) => Card.sameSuit c1 c2)
-		 [(JH, SixH), (SixH, SixS)]
-		 [true, false]
-	,runTests "sameRank" op=
-		   (fn (c1, c2) => Card.sameRank c1 c2)
-		   [(JH, SixH), (SixH, SixS)]
-		   [false, true]
-	,runTests "same" op=
-		   (fn (c1, c2) => Card.same c1 c2)
-	      	   [(JH, JH), (SixH, JH), (SixS, SixS), (JH, SixS)]
-		   [true, false, true, false]
-	,runTests "hasRank" op=
-	      	   (fn (c, cs) => Card.hasRank c cs)
-	      	   [(JH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [])]
-	      	   [false, true, false]
-	,runTests "find" compareCardOpts
-		   (fn (c, cs) => Card.find c cs)
-		   [(SixH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [SixH, JH])]
-		   [SOME SixH, NONE, SOME JH]
-	]
-in
-val cardTests =
-    case List.filter (fn (n,t) => not t) tests of
-	[] => ("Passed all tests!", [])
-      | ts => ("Failed some tests:", map #1 ts)
-
-val t' = map (fn (c, cs) => Card.find c cs)
-	     [(SixH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [SixH, JH])]
-
-val t'' = [SOME SixH, NONE, SOME JH]
-
-val r = ListPair.allEq compareCardOpts (t', t'')
-
 end
