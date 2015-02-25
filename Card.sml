@@ -15,6 +15,9 @@ sig
     val toString   : card -> string
     val toStrings  : card list -> string
     val toStrings' : int -> card list -> unit
+    val toLongString   : card -> string
+    val toLongStrings  : card list -> string
+    val toLongStrings' : int -> card list -> unit
     val shuffledDeck : unit -> card list
 end
 
@@ -49,6 +52,7 @@ fun mkRandomSeed () =
 
 fun deleteAt (xs, n) = List.take(xs,n) @ List.drop(xs,n+1)
 
+(* randomly select n elements from a list *)
 fun randomSelect n xs =
     let val r = mkRandomSeed()
 	fun loop (n, max, xs, acc) =
@@ -83,18 +87,24 @@ fun listsOfN n xs =
 	(rev o loop) (n, xs, [], [])
     end
 		
-(* ranks, associated string representations, and associated values *)
-val ranks       = [Ace, King, Queen, Jack] @ map Num (range 10 2)
-val rankStrings = ["A", "K", "Q", "J"] @ map Int.toString (range 10 2)
-val rankStrMap  = ListPair.zip(ranks, rankStrings)
-val rankValus   = range 14 2
-val rankValuMap = ListPair.zip(ranks, rankValus)
-val valuRankMap = ListPair.zip(rankValus, ranks)
+(* rank string representations *)
+val ranks        = [Ace, King, Queen, Jack] @ map Num (range 10 2)
+val rankStrings  = ["A", "K", "Q", "J"] @ map Int.toString (range 10 2)
+val rankLongStrs = ["Ace", "King", "Queen", "Jack"] @ map Int.toString (range 10 2)
+val rankStrMap   = ListPair.zip(ranks, rankStrings)
+val rankLStrMap  = ListPair.zip(ranks, rankLongStrs)
+			       
+(* rank values *)
+val rankValus    = range 14 2
+val rankValuMap  = ListPair.zip(ranks, rankValus)
+val valuRankMap  = ListPair.zip(rankValus, ranks)
 
-(* suits and associated string representations *)
-val suits       = [Spades, Diamonds, Clubs, Hearts]
-val suitStrings = ["S", "D", "C", "H"] (* ["♠", "♦", "♣", "♥"] *)    
-val suitStrMap  = ListPair.zip(suits, suitStrings)
+(* suit string representations *)
+val suits        = [Spades, Diamonds, Clubs, Hearts]
+val suitStrings  = ["S", "D", "C", "H"] (* ["♠", "♦", "♣", "♥"] *)
+val suitLongStrs = ["Spades", "Diamonds", "Clubs", "Hearts"]
+val suitStrMap   = ListPair.zip(suits, suitStrings)
+val suitLStrMap  = ListPair.zip(suits, suitLongStrs)
 			      
 (* card comparisons *)
 fun sameSuit (r1, s1) (r2, s2) = s1 = s2
@@ -123,27 +133,46 @@ fun value (r, s) =
       | NONE   => raise NotACard
 
 fun compareRank c1 c2 =
-    let val v1 = value c1
-	val v2 = value c2
+    let val vs = (value c1, value c2)
     in
-	Int.compare(v1,v2)
+	Int.compare vs
     end
 
-(* convert cards to strings and printing functions *)
-fun toString (r, s) =
-    case (mapFind r rankStrMap, mapFind s suitStrMap) of
-	(NONE, _)          => raise NotACard
-      | (_, NONE)          => raise NotACard
-      | (SOME r', SOME s') => r' ^ s'
-
-val toStrings = (String.concatWith " ") o (map toString)
-		      
-fun toStrings' cardsPerLine =
-    print o String.concat o (map (fn s => toStrings s ^ "\n")) o (listsOfN cardsPerLine)
-
+(* convert cards to strings *)
+local 
+    fun toStringHelper rMap sMap breakChr (r, s) =
+	case (mapFind r rMap, mapFind s sMap) of
+	    (NONE, _)          => raise NotACard
+	  | (_, NONE)          => raise NotACard
+	  | (SOME r', SOME s') => r' ^ breakChr ^ s'
+in
+val toString     = toStringHelper rankStrMap suitStrMap ""
+val toLongString = toStringHelper rankLStrMap suitLStrMap " of "
+end
+				  
+(* convert list of cards to a string *)
+local
+    fun toStringsHelper f delimChr = (String.concatWith delimChr) o (map f)
+in
+val toStrings         = toStringsHelper toString " "
+val toLongStrings     = toStringsHelper toLongString ", "
+end
+					
+(* print cards in list, specifying how many cards should appear on each line *)
+local
+    fun toStringsHelper' f cardsPerLine cs =
+	let val lines = map (fn s => f s ^ "\n") (listsOfN cardsPerLine cs)
+	in
+	    print (String.concat lines)
+	end
+in
+fun toStrings' cpl     = toStringsHelper' toStrings cpl
+fun toLongStrings' cpl = toStringsHelper' toLongStrings cpl
+end
+								     
 (* deck generation *)
-val fullDeck = foldl op@ [] (map (fn s => (map (fn r => (r, s)) ranks)) suits)
-fun shuffled cs = randomSelect (length cs) cs
+val fullDeck        = foldl op@ [] (map (fn s => (map (fn r => (r, s)) ranks)) suits)
+fun shuffled cs     = randomSelect (length cs) cs
 fun shuffledDeck () = shuffled fullDeck
 
 (* card constructor *)

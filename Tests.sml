@@ -93,6 +93,22 @@ local
 		  (fn (c1, c2) => Card.compareRank c1 c2)
 		  [(SixH, SixS), (JH, SixS), (SixS, JH)]
 		  [EQUAL, GREATER, LESS]
+	,runTests "toString" op=
+		  Card.toString
+		  [SixH, JH, SixS]
+		  ["6H", "JH", "6S"]
+	,runTests "toLongString" op=
+		  Card.toLongString
+		  [SixH, JH, SixS]
+		  ["6 of Hearts", "Jack of Hearts", "6 of Spades"]
+	,runTests "toStrings" op=
+		  Card.toStrings
+		  [[SixH, JH, SixS]]
+		  ["6H JH 6S"]
+	,runTests "toLongStrings" op=
+		  Card.toLongStrings
+		  [[SixH, JH, SixS]]
+		  ["6 of Hearts, Jack of Hearts, 6 of Spades"]
 	,runTests "shuffledDeck" sameCardList
 		  (fn cs => foldl (fn (rc, cs') => Card.remove rc cs') cs AllCards)
 		  [Card.shuffledDeck()]
