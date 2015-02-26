@@ -68,25 +68,25 @@ local
     (* Card tests *)
     val cardTests =
 	[runTests "sameSuit" op=
-		 (fn (c1, c2) => Card.sameSuit c1 c2)
-		 [(JH, SixH), (SixH, SixS)]
-		 [true, false]
+		  (fn (c1, c2) => Card.sameSuit c1 c2)
+		  [(JH, SixH), (SixH, SixS)]
+		  [true, false]
 	,runTests "sameRank" op=
-		   (fn (c1, c2) => Card.sameRank c1 c2)
-		   [(JH, SixH), (SixH, SixS)]
-		   [false, true]
+		  (fn (c1, c2) => Card.sameRank c1 c2)
+		  [(JH, SixH), (SixH, SixS)]
+		  [false, true]
 	,runTests "same" op=
-		   (fn (c1, c2) => Card.same c1 c2)
-	      	   [(JH, JH), (SixH, JH), (SixS, SixS), (JH, SixS)]
-		   [true, false, true, false]
+		  (fn (c1, c2) => Card.same c1 c2)
+	      	  [(JH, JH), (SixH, JH), (SixS, SixS), (JH, SixS)]
+		  [true, false, true, false]
 	,runTests "hasRank" op=
-	      	   (fn (c, cs) => Card.hasRank c cs)
-	      	   [(JH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [])]
-	      	   [false, true, false]
+	      	  (fn (c, cs) => Card.hasRank c cs)
+	      	  [(JH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [])]
+	      	  [false, true, false]
 	,runTests "find" sameCardOpt
-		   (fn (c, cs) => Card.find c cs)
-		   [(SixH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [SixH, JH])]
-		   [SOME SixH, NONE, SOME JH]
+		  (fn (c, cs) => Card.find c cs)
+		  [(SixH, [SixH, SixS]), (SixH, [JH, SixS]), (JH, [SixH, JH])]
+		  [SOME SixH, NONE, SOME JH]
 	,runTests "remove" sameCardList
 		  (fn (c, cs) => Card.remove c cs)
 		  [ (* standard case *)
@@ -158,11 +158,13 @@ local
 	,runTests "attack" samePlayerTable
 		  (fn (pa,ca,pd,t) => Table.attack pa ca pd t)
 		  [(Alice, SixS, Bob, T []),
-		   (Bob, KD, Alice, tbl2)]
-		  [(P ("Aggressive Alice", [JH, SixH]),
-		    T [SixS]),
-		   (P ("By-The-Book Bob", [QS, SevenH]),
-		    T [KD, KC, TenH])]
+		   (Bob, KD, Alice, T [KC, TenH])]
+		  [(P ("Aggressive Alice", [JH, SixH]), T [SixS]),
+		   (P ("By-The-Book Bob", [QS, SevenH]), T [KD, KC, TenH])]
+	(* ,runTests "defend" samePlayerTable *)
+	(* 	  (fn (pd,cd,ca,t,s) => Table.defend pd cd ca t s) *)
+	(* 	  [(Alice, JH, TenH, T [KC, TenH, EightS, KingS], Spades)] *)
+	(* 	  [T [KC, TenH, EightS, KingS] *)
 	]
 in
 val testResults = checkAllTests (cardTests @ tableTests)
