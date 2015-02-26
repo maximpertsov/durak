@@ -2,14 +2,17 @@ use "Card.sml";
 
 signature TABLE =
 sig
-    type table = (Card.card * Card.card option) list
+    type table
     type player
     val Table : Card.card list -> table
     val sameTable : table -> table -> bool (* Primarily for testing, but leave in final code *)
-    val add : Card.card -> table -> table
+    (* val add : Card.card -> table -> table *)
     val Player : string * Card.card list -> player
     val name : player -> string
     val hand : player -> Card.card list
+    val draw : Card.card -> player -> player
+    val discard : Card.card -> player -> player
+    val samePlayer : player -> player -> bool
     val remove : Card.card -> table -> table
     val attack : player -> Card.card -> player -> table -> player * table
     val defend : player -> Card.card -> Card.card -> table -> Card.suit ->
@@ -19,8 +22,10 @@ end
 structure Table :> TABLE =
 struct
 
-(* a table is represented as a list of "trick" pairs, which is an attacking card paired with either a defending card or nothing (hence the use of an option for the second item of the pair) *)
-(* TODO: consider representing the table as Map rather than a list... *)
+(* a table is represented as a list of "trick" pairs, which is an attacking card 
+   paired with either a defending card or nothing (hence the use of an option for 
+   the second item of the pair) *)
+(* TODO: consider representing the table as Map rather than a list *)
 type table  = (Card.card * Card.card option) list
 type player = {name: string, hand: Card.card list}
 
@@ -76,13 +81,27 @@ fun allCards tbl =
 	loop (tbl, [])
     end
 
-(* get player/hand information *)
+(* player constuctor and getters *)
 fun Player (n, cs) = {name = n, hand = cs}
 fun name (p : player) = #name p
 fun hand (p : player) = #hand p
+
+(* check if players are the same *)
+fun samePlayer p1 p2 =
+    let val hands     = (hand p1, hand p2)
+	val sameCards = ListPair.allEq (fn (c1,c2) => Card.same c1 c2) 
+    in
+	(name p1 = name p2) andalso (sameCards hands)
+    end
+
+(* hand card count information *)
 val numCards = length o hand
 fun numExcessCards p tbl = numCards p - (length o unbeatenCards) tbl
 
+(* basic player actions *)
+fun draw c p    = Player (name p, c::(hand p))
+fun discard c p = Player (name p, Card.remove c (hand p))
+						   
 (* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk'    if 'c' is the same suit and higher rank than 'atk', or if 'c' has the 
    trump suit *)
 fun beats cDef cAtk trump =

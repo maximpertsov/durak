@@ -44,16 +44,9 @@ fun sameCardList (cs1, cs2) =
     ListPair.allEq (fn (c1,c2) => Card.same c1 c2) (cs1, cs2)
 
 (* Table comparison helper functions *)
-fun sameTable (tbl1 : Table.table , tbl2 : Table.table) =
-    let fun sameCardPair ((a1, d1), (a2, d2)) =
-	    (Card.same a1 a2) andalso (sameCardOpt (d1, d2))
-    in
-	ListPair.allEq sameCardPair (tbl1, tbl2)
-    end
+fun sameTable (tbl1, tbl2) = Table.sameTable tbl1 tbl2
 
-fun samePlayer (p1, p2) =
-    (Table.name p1) = (Table.name p2)
-    andalso sameCardList ((Table.hand p1), (Table.hand p2))
+fun samePlayer (p1, p2) = Table.samePlayer p1 p2
 
 fun samePlayerTable ((p1, tbl1), (p2, tbl2)) =
     (samePlayer (p1, p2)) andalso (sameTable (tbl1, tbl2))
@@ -131,24 +124,45 @@ local
 		  [[]]
 	]
     (* Table variables *)
-    val Player = Table.Player
+    val T = Table.Table
+    val P = Table.Player
     val [QS, KD, SevenH, KC, TenH, EightS, KingS] =
 	map Card [(12, Spades), (13, Diamonds), (7, Hearts),
 		  (13, Clubs), (10, Hearts), (8, Spades), (13, Spades)]
-    val Alice = Player ("Aggressive Alice", [SixS, JH, SixH])
-    val Bob   = Player ("By-The-Book Bob",  [QS, KD, SevenH])
-    val Draws = [KC, TenH, EightS, KingS]
+    val Alice = P ("Aggressive Alice", [SixS, JH, SixH])
+    val Bob   = P ("By-The-Book Bob",  [QS, KD, SevenH])
+    val tbl1  = T [KC, TenH, EightS, KingS]
+    val tbl2  = T [KC, TenH]
     val tableTests =
-	[runTests "name" op= Table.name
+	[runTests "sameTable" op=
+		  (fn (t1,t2) => Table.sameTable t1 t2)
+		  [(tbl1, T []), (tbl1, tbl1), (T [], T [])]
+		  [false, true, true]
+	,runTests "name" op= Table.name
 		  [Alice, Bob]
 		  ["Aggressive Alice", "By-The-Book Bob"]
 	,runTests "hand" sameCardList Table.hand
 		  [Alice, Bob]
 		  [[SixS, JH, SixH], [QS, KD, SevenH]]
-	(* ,runTests "attack" sameTable *)
-	(* 	  (fn (pa,ca,pd,t) => Table.attack pa ca pd t) *)
-	(* 	  [(Alice, SixS, Bob, [])] *)
-	(* 	  [(Player ("Aggressive Alice", [JH, SixH]), [(SixS, NONE)])] *)
+	,runTests "draw" samePlayer
+		  (fn (c,p) => Table.draw c p)
+		  [(JH, Alice), (JH, Bob)]
+		  [P ("Aggressive Alice", [JH, SixS, JH, SixH]),
+		   P ("By-The-Book Bob",  [JH, QS, KD, SevenH])]
+	,runTests "discard" samePlayer
+		  (fn (c,p) => Table.discard c p)
+		  [(JH, Alice), (QS, Bob), (QS, Alice)]
+		  [P ("Aggressive Alice", [SixS, SixH]),
+		   P ("By-The-Book Bob",  [KD, SevenH]),
+		   P ("Aggressive Alice", [SixS, JH, SixH])]
+	,runTests "attack" samePlayerTable
+		  (fn (pa,ca,pd,t) => Table.attack pa ca pd t)
+		  [(Alice, SixS, Bob, T []),
+		   (Bob, KD, Alice, tbl2)]
+		  [(P ("Aggressive Alice", [JH, SixH]),
+		    T [SixS]),
+		   (P ("By-The-Book Bob", [QS, SevenH]),
+		    T [KD, KC, TenH])]
 	]
 in
 val testResults = checkAllTests (cardTests @ tableTests)
