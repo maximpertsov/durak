@@ -140,11 +140,12 @@ fun compareRank c1 c2 =
 
 (* convert cards to strings *)
 local 
-    fun toStringHelper rMap sMap breakChr (r, s) =
+    fun toStringHelper rMap sMap midChr (r, s) =
 	case (mapFind r rMap, mapFind s sMap) of
 	    (NONE, _)          => raise NotACard
 	  | (_, NONE)          => raise NotACard
-	  | (SOME r', SOME s') => r' ^ breakChr ^ s'
+	  | (SOME r', SOME s') => r' ^ midChr ^ s'
+						    
 in
 val toString     = toStringHelper rankStrMap suitStrMap ""
 val toLongString = toStringHelper rankLStrMap suitLStrMap " of "

@@ -1,5 +1,5 @@
 (* Import Modules *)
-use "Card.sml";
+use "Table.sml";
 
 signature TESTS =
 sig
@@ -38,22 +38,21 @@ local
 	  | _                  => false
     fun sameCardList (cs1, cs2) =
 	ListPair.allEq (fn (c1,c2) => Card.same c1 c2) (cs1, cs2)
-    (* variables *)
+    (* Card test variables *)
     val Card = Card.Card
     val (Hearts, Clubs, Diamonds, Spades) =
 	(Card.Hearts, Card.Clubs, Card.Diamonds, Card.Spades)
     val JH =   Card (11, Hearts)
     val SixH = Card (6, Hearts)
     val SixS = Card (6, Spades)
-    (* [JH, SixH, SixS] *)
     val AllCards =
     	let val twoTo14 = List.tabulate (13, fn i => i + 2)
     	    fun cardSuit s = map (fn r => Card (r, s)) twoTo14
     	in
     	    List.concat (map cardSuit [Hearts, Clubs, Diamonds, Spades])
     	end
-    (* tests *)
-    val tests = 
+    (* Card tests *)
+    val cardTests =
 	[runTests "sameSuit" op=
 		 (fn (c1, c2) => Card.sameSuit c1 c2)
 		 [(JH, SixH), (SixH, SixS)]
@@ -93,20 +92,16 @@ local
 		  (fn (c1, c2) => Card.compareRank c1 c2)
 		  [(SixH, SixS), (JH, SixS), (SixS, JH)]
 		  [EQUAL, GREATER, LESS]
-	,runTests "toString" op=
-		  Card.toString
+	,runTests "toString" op= Card.toString
 		  [SixH, JH, SixS]
 		  ["6H", "JH", "6S"]
-	,runTests "toLongString" op=
-		  Card.toLongString
+	,runTests "toLongString" op= Card.toLongString
 		  [SixH, JH, SixS]
 		  ["6 of Hearts", "Jack of Hearts", "6 of Spades"]
-	,runTests "toStrings" op=
-		  Card.toStrings
+	,runTests "toStrings" op= Card.toStrings
 		  [[SixH, JH, SixS]]
 		  ["6H JH 6S"]
-	,runTests "toLongStrings" op=
-		  Card.toLongStrings
+	,runTests "toLongStrings" op= Card.toLongStrings
 		  [[SixH, JH, SixS]]
 		  ["6 of Hearts, Jack of Hearts, 6 of Spades"]
 	,runTests "shuffledDeck" sameCardList
@@ -114,8 +109,39 @@ local
 		  [Card.shuffledDeck()]
 		  [[]]
 	]
+    (* Table variables *)
+    fun sameTable (tbl1 : Table.table , tbl2 : Table.table) =
+	let fun sameCardPair ((a1, d1), (a2, d2)) =
+		(Card.same a1 a2) andalso (sameCardOpt (d1, d2))
+	in
+	    ListPair.allEq sameCardPair (tbl1, tbl2)
+	end
+    fun samePlayer (p1, p2) =
+	(Table.name p1) = (Table.name p2)
+	andalso sameCardList ((Table.hand p1), (Table.hand p2))
+    fun samePlayerTable ((p1, tbl1), (p2, tbl2)) =
+	(samePlayer (p1, p2)) andalso (sameTable (tbl1, tbl2))
+    val Player = Table.Player
+    val [QS, KD, SevenH, KC, TenH, EightS, KingS] =
+	map Card [(12, Spades), (13, Diamonds), (7, Hearts),
+		  (13, Clubs), (10, Hearts), (8, Spades), (13, Spades)]
+    val Alice = Player ("Aggressive Alice", [SixS, JH, SixH])
+    val Bob   = Player ("By-The-Book Bob",  [QS, KD, SevenH])
+    val Draws = [KC, TenH, EightS, KingS]
+    val tableTests =
+	[runTests "name" op= Table.name
+		  [Alice, Bob]
+		  ["Aggressive Alice", "By-The-Book Bob"]
+	,runTests "hand" sameCardList Table.hand
+		  [Alice, Bob]
+		  [[SixS, JH, SixH], [QS, KD, SevenH]]
+	(* ,runTests "attack" sameTable *)
+	(* 	  (fn (pa,ca,pd,t) => Table.attack pa ca pd t) *)
+	(* 	  [(Alice, SixS, Bob, [])] *)
+	(* 	  [(Player ("Aggressive Alice", [JH, SixH]), [(SixS, NONE)])] *)
+	]
 in
-val testResults = checkAllTests tests
+val testResults = checkAllTests (cardTests @ tableTests)
 end
 
 end
