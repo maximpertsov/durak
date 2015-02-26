@@ -3,7 +3,11 @@ use "Table.sml";
 
 signature TESTS =
 sig
-    val testResults : unit
+    val sameCardOpt     : Card.card option * Card.card option -> bool
+    val sameCardList    : Card.card list * Card.card list -> bool
+    val samePlayerTable : (Table.player * Table.table) *
+			  (Table.player * Table.table) -> bool
+    val testResults     : unit
 end
     
 structure Tests :> TESTS =
@@ -28,16 +32,33 @@ fun checkAllTests ts =
       | ts' => (print "\nxxx FAILED SOME TESTS: xxx\n";
 		app (fn (n, _) => print ("* " ^ n ^ "\n")) ts';
 		print "\n")
-	      
+
+(* Card comparison helper functions *)
+fun sameCardOpt (c1opt, c2opt) =
+    case (c1opt, c2opt) of
+	(SOME c1, SOME c2) => Card.same c1 c2
+      | (NONE, NONE)       => true
+      | _                  => false
+
+fun sameCardList (cs1, cs2) =
+    ListPair.allEq (fn (c1,c2) => Card.same c1 c2) (cs1, cs2)
+
+(* Table comparison helper functions *)
+fun sameTable (tbl1 : Table.table , tbl2 : Table.table) =
+    let fun sameCardPair ((a1, d1), (a2, d2)) =
+	    (Card.same a1 a2) andalso (sameCardOpt (d1, d2))
+    in
+	ListPair.allEq sameCardPair (tbl1, tbl2)
+    end
+
+fun samePlayer (p1, p2) =
+    (Table.name p1) = (Table.name p2)
+    andalso sameCardList ((Table.hand p1), (Table.hand p2))
+
+fun samePlayerTable ((p1, tbl1), (p2, tbl2)) =
+    (samePlayer (p1, p2)) andalso (sameTable (tbl1, tbl2))
+
 local
-    (* Card comparison helper functions *)
-    fun sameCardOpt (c1opt, c2opt) =
-	case (c1opt, c2opt) of
-	    (SOME c1, SOME c2) => Card.same c1 c2
-	  | (NONE, NONE)       => true
-	  | _                  => false
-    fun sameCardList (cs1, cs2) =
-	ListPair.allEq (fn (c1,c2) => Card.same c1 c2) (cs1, cs2)
     (* Card test variables *)
     val Card = Card.Card
     val (Hearts, Clubs, Diamonds, Spades) =
@@ -110,17 +131,6 @@ local
 		  [[]]
 	]
     (* Table variables *)
-    fun sameTable (tbl1 : Table.table , tbl2 : Table.table) =
-	let fun sameCardPair ((a1, d1), (a2, d2)) =
-		(Card.same a1 a2) andalso (sameCardOpt (d1, d2))
-	in
-	    ListPair.allEq sameCardPair (tbl1, tbl2)
-	end
-    fun samePlayer (p1, p2) =
-	(Table.name p1) = (Table.name p2)
-	andalso sameCardList ((Table.hand p1), (Table.hand p2))
-    fun samePlayerTable ((p1, tbl1), (p2, tbl2)) =
-	(samePlayer (p1, p2)) andalso (sameTable (tbl1, tbl2))
     val Player = Table.Player
     val [QS, KD, SevenH, KC, TenH, EightS, KingS] =
 	map Card [(12, Spades), (13, Diamonds), (7, Hearts),

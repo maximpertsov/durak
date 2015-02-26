@@ -4,12 +4,16 @@ signature TABLE =
 sig
     type table = (Card.card * Card.card option) list
     type player
+    val Table : Card.card list -> table
+    val sameTable : table -> table -> bool (* Primarily for testing, but leave in final code *)
+    val add : Card.card -> table -> table
     val Player : string * Card.card list -> player
     val name : player -> string
     val hand : player -> Card.card list
     val remove : Card.card -> table -> table
     val attack : player -> Card.card -> player -> table -> player * table
-    val defend : player -> Card.card -> Card.card -> table -> Card.suit -> player * table
+    val defend : player -> Card.card -> Card.card -> table -> Card.suit ->
+		 player * table
 end
 
 structure Table :> TABLE =
@@ -26,7 +30,27 @@ exception NoMatchingRank
 exception CannotBeatCard
 exception MissingAttackCard
 
-(* remove a card/trick pair from the table. Do nothing if the specified card cannot be found *)
+(* Create a new table with some unbeaten cards already played *)
+fun Table cs = map (fn c => (c, NONE)) cs
+
+(* check if two tables have the same card layout *)
+fun sameTable tbl1 tbl2 =
+    let fun sameCardOpt c1opt c2opt =
+	    case (c1opt, c2opt) of
+		(SOME c1, SOME c2) => Card.same c1 c2
+	      | (NONE, NONE)       => true
+	      | _                  => false
+	fun sameCardPair ((atk1, def1), (atk2, def2)) =
+	    (Card.same atk1 atk2) andalso (sameCardOpt def1 def2)
+    in
+	ListPair.allEq sameCardPair (tbl1, tbl2)
+    end
+
+(* add an unbeaten card to the table *)
+fun add c tbl = (c, NONE)::tbl
+
+(* remove a card/trick pair from the table. Do nothing if the specified card 
+   cannot be found *)
 fun remove c tbl =
     case tbl of
 	[]             => []
@@ -59,7 +83,8 @@ fun hand (p : player) = #hand p
 val numCards = length o hand
 fun numExcessCards p tbl = numCards p - (length o unbeatenCards) tbl
 
-(* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk' if 'c' is the same suit and higher rank than 'atk', or if 'c' has the trump suit *)
+(* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk'    if 'c' is the same suit and higher rank than 'atk', or if 'c' has the 
+   trump suit *)
 fun beats cDef cAtk trump =
     if Card.sameSuit cDef cAtk then
 	case Card.compareRank cDef cAtk of
@@ -67,22 +92,24 @@ fun beats cDef cAtk trump =
 	  | _       => false
     else Card.suit cDef = trump
 
+(* specified player plays a card that another player has to beat. 
+   Can only play card if:
+   1. The defending player has more cards in their hand than there are unbeaten 
+      cards already on the table
+   AND
+   2. EITHER the rank of the attacking card is already on the field 
+             OR no cards have been played yet *)
 local
     fun attackHelper c p tbl =
 	if numExcessCards p tbl > 0 then
 	    case tbl of
 		[] => (c, NONE)::tbl
-	      | _  => if Card.hasRank c (allCards tbl) then
-			  (c, NONE)::tbl
-		      else
-			  raise NoMatchingRank
+	      | _  => if   Card.hasRank c (allCards tbl)
+		      then add c tbl
+		      else raise NoMatchingRank
 	else
 	    raise NotEnoughCards
 in
-(* specified player plays a card that another player has to beat. Can only play card if:
-1. The defending player has more cards in their hand than there are unbeaten cards already on the table
-   AND
-2. EITHER the rank of the attacking card is already on the field OR no cards have been played yet *)
 fun attack pAtk c pDef tbl =
     (let val h = hand pAtk
      in
@@ -99,7 +126,9 @@ fun attack pAtk c pDef tbl =
 	 | NotEnoughCards => (print (name pDef ^ " does not have enough cards to defend against this attack!"); (pAtk, tbl))
 	 | NoMatchingRank => (print "This rank has not been played yet! You can only attack with ranks that have already been played during this round."; (pAtk, tbl))
 end
-				 
+
+(* specified player plays a card to beat an attacking card on the table. 
+   Must specify the trump suit *)	
 local
     fun defendHelper cDef cAtk tbl trump =
 	case Card.find cAtk (unbeatenCards tbl) of
@@ -108,8 +137,7 @@ local
 		      else
 			  raise CannotBeatCard
 	  | NONE   => raise MissingAttackCard
-in
-(* specified player plays a card to beat an attacking card on the table. Must specify the trump suit *)			
+in		
 fun defend pDef cDef cAtk tbl trump =
     (let val h = hand pDef
      in
@@ -128,17 +156,15 @@ fun defend pDef cDef cAtk tbl trump =
 end
 	
 end
-
-		      
 	
 (* TESTING *)
-val d = Card.shuffledDeck()
-val dStr = Card.toStrings d
+(* val d = Card.shuffledDeck() *)
+(* val dStr = Card.toStrings d *)
 
-val p1 = Table.Player ("Max", List.take (d, 6))
-val p1Str = Card.toStrings (Table.hand p1)
-val d' = List.drop (d, 6)
+(* val p1 = Table.Player ("Max", List.take (d, 6)) *)
+(* val p1Str = Card.toStrings (Table.hand p1) *)
+(* val d' = List.drop (d, 6) *)
 	    
-val p2 = Table.Player ("Rishi", List.take (d', 6))
-val p2Str = Card.toStrings (Table.hand p2)
-val d'' = List.drop (d', 6)
+(* val p2 = Table.Player ("Rishi", List.take (d', 6)) *)
+(* val p2Str = Card.toStrings (Table.hand p2) *)
+(* val d'' = List.drop (d', 6) *)

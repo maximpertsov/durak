@@ -3,6 +3,7 @@ sig
     datatype suit = Spades | Clubs | Diamonds | Hearts
     type card
     val Card : int * suit -> card
+    val Card' : int * int -> card (* ONLY FOR TESTING!! *)
     val sameSuit : card -> card -> bool
     val sameRank : card -> card -> bool
     val same : card -> card -> bool
@@ -181,5 +182,20 @@ fun Card (i, s) =
     case mapFind i valuRankMap of
 	SOME r => (r, s)
       | NONE   => raise NotACard
+
+(* alternate card constructor - ONLY FOR TESTING! *)
+fun Card' (i, j) =
+    case mapFind i valuRankMap of
+	NONE   => raise NotACard
+      | SOME r => let val s =
+			  case j of
+			      1 => Hearts
+			    | 2 => Clubs
+			    | 3 => Diamonds
+			    | 4 => Spades
+			    | _ => raise NotACard
+		  in
+		      (r, s)
+		  end
 			
 end
