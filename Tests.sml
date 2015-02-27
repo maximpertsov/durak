@@ -5,8 +5,8 @@ signature TESTS =
 sig
     val sameCardOpt     : Card.card option * Card.card option -> bool
     val sameCardList    : Card.card list * Card.card list -> bool
-    val samePlayerTable : (Table.player * Table.table) *
-			  (Table.player * Table.table) -> bool
+    val samePlayerTable : (Player.player * Table.table) *
+			  (Player.player * Table.table) -> bool
     val testResults     : unit
 end
     
@@ -44,9 +44,9 @@ fun sameCardList (cs1, cs2) =
     ListPair.allEq (fn (c1,c2) => Card.same c1 c2) (cs1, cs2)
 
 (* Table comparison helper functions *)
-fun sameTable (tbl1, tbl2) = Table.sameTable tbl1 tbl2
+fun sameTable (tbl1, tbl2) = Table.same tbl1 tbl2
 
-fun samePlayer (p1, p2) = Table.samePlayer p1 p2
+fun samePlayer (p1, p2) = Player.same p1 p2
 
 fun samePlayerTable ((p1, tbl1), (p2, tbl2)) =
     (samePlayer (p1, p2)) andalso (sameTable (tbl1, tbl2))
@@ -125,7 +125,7 @@ local
 	]
     (* Table variables *)
     val T = Table.Table
-    val P = Table.Player
+    val P = Player.Player
     val [QS, KD, SevenH, KC, TenH, EightS, KingS] =
 	map Card [(12, Spades), (13, Diamonds), (7, Hearts),
 		  (13, Clubs), (10, Hearts), (8, Spades), (13, Spades)]
@@ -135,22 +135,22 @@ local
     val tbl2  = T [KC, TenH]
     val tableTests =
 	[runTests "sameTable" op=
-		  (fn (t1,t2) => Table.sameTable t1 t2)
+		  (fn (t1,t2) => Table.same t1 t2)
 		  [(tbl1, T []), (tbl1, tbl1), (T [], T [])]
 		  [false, true, true]
-	,runTests "name" op= Table.name
+	,runTests "name" op= Player.name
 		  [Alice, Bob]
 		  ["Aggressive Alice", "By-The-Book Bob"]
-	,runTests "hand" sameCardList Table.hand
+	,runTests "hand" sameCardList Player.hand
 		  [Alice, Bob]
 		  [[SixS, JH, SixH], [QS, KD, SevenH]]
 	,runTests "draw" samePlayer
-		  (fn (c,p) => Table.draw c p)
+		  (fn (c,p) => Player.draw c p)
 		  [(JH, Alice), (JH, Bob)]
 		  [P ("Aggressive Alice", [JH, SixS, JH, SixH]),
 		   P ("By-The-Book Bob",  [JH, QS, KD, SevenH])]
 	,runTests "discard" samePlayer
-		  (fn (c,p) => Table.discard c p)
+		  (fn (c,p) => Player.discard c p)
 		  [(JH, Alice), (QS, Bob), (QS, Alice)]
 		  [P ("Aggressive Alice", [SixS, SixH]),
 		   P ("By-The-Book Bob",  [KD, SevenH]),

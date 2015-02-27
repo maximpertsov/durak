@@ -3,21 +3,15 @@ use "Player.sml";
 signature TABLE =
 sig
     type table
-    type player
     val Table : Card.card list -> table
-    val sameTable : table -> table -> bool (* Primarily for testing, but leave in final code *)
+    val same : table -> table -> bool (* Primarily for testing, but leave in final *)
     val addCard  : Card.card -> table -> table
-    val addTrick : Card.card -> Card.card -> table -> table	  
+    val addPair : Card.card -> Card.card -> table -> table	  
     val remove : Card.card -> table -> table
-    val Player : string * Card.card list -> player
-    val name : player -> string
-    val hand : player -> Card.card list
-    val draw : Card.card -> player -> player
-    val discard : Card.card -> player -> player
-    val samePlayer : player -> player -> bool
-    val attack : player -> Card.card -> player -> table -> player * table
-    val defend : player -> Card.card -> Card.card -> table -> Card.suit ->
-    		 player * table
+    val attack : Player.player -> Card.card -> Player.player -> table ->
+		 Player.player * table
+    val defend : Player.player -> Card.card -> Card.card -> table -> Card.suit ->
+    		 Player.player * table
 end
 
 structure Table :> TABLE =
@@ -28,7 +22,6 @@ struct
    the second item of the pair) *)
 (* TODO: consider representing the table as Map rather than a list *)
 type table  = (Card.card * Card.card option) list
-type player = Player.player (* {name: string, hand: Card.card list} *)
 
 exception MissingCard
 exception NotEnoughCards
@@ -40,7 +33,7 @@ exception MissingAttackCard
 fun Table cs = map (fn c => (c, NONE)) cs
 
 (* check if two tables have the same card layout *)
-fun sameTable tbl1 tbl2 =
+fun same tbl1 tbl2 =
     let fun sameCardOpt c1opt c2opt =
 	    case (c1opt, c2opt) of
 		(SOME c1, SOME c2) => Card.same c1 c2
@@ -56,7 +49,7 @@ fun sameTable tbl1 tbl2 =
 fun addCard c tbl = (c, NONE)::tbl
 
 (* add a trick pair to the table *)	       
-fun addTrick cAtk cDef tbl = (cAtk, SOME cDef)::tbl
+fun addPair cAtk cDef tbl = (cAtk, SOME cDef)::tbl
 
 (* remove a card/trick pair from the table. Do nothing if the specified card 
    cannot be found *)
@@ -85,27 +78,9 @@ fun allCards tbl =
 	loop (tbl, [])
     end
 
-(* player constuctor and getters *)
-val Player = Player.Player (* (n, cs) = {name = n, hand = cs} *)
-val name   = Player.name (* (p : player) = #name p *)
-val hand   = Player.hand (* (p : player) = #hand p *)
-
-(* check if players are the same *)
-val samePlayer = Player.same
-(* fun samePlayer p1 p2 = *)
-(*     let val hands     = (hand p1, hand p2) *)
-(* 	val sameCards = ListPair.allEq (fn (c1,c2) => Card.same c1 c2)  *)
-(*     in *)
-(* 	(name p1 = name p2) andalso (sameCards hands) *)
-(*     end *)
-
 (* hand card count information *)
-val numCards = length o hand
+val numCards = length o Player.hand
 fun numExcessCards p tbl = numCards p - (length o unbeatenCards) tbl
-
-(* basic player actions *)
-val draw    = Player.draw (* c p    = Player (name p, c::(hand p)) *)
-val discard = Player.discard (* c p = Player (name p, Card.remove c (hand p)) *)
 						   
 (* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk'    if 'c' is the same suit and higher rank than 'atk', or if 'c' has the 
    trump suit *)
@@ -135,19 +110,19 @@ local
 	    raise NotEnoughCards
 in
 fun attack pAtk c pDef tbl =
-    (let val h = hand pAtk
+    (let val h = Player.hand pAtk
      in
 	 case Card.find c h of
-	     SOME c' => let val name' = name pAtk
+	     SOME c' => let val name' = Player.name pAtk
 			    val hand' = Card.remove c' h
 			    val tbl'  = attackHelper c' pDef tbl
 			in
-			    (Player (name', hand'), tbl')
+			    (Player.Player (name', hand'), tbl')
 			end
 	   | NONE    => raise MissingCard
      end)
     handle MissingCard    => (print ("You don't have a " ^ Card.toString c ^ "!"); (pAtk, tbl))
-	 | NotEnoughCards => (print (name pDef ^ " does not have enough cards to defend against this attack!"); (pAtk, tbl))
+	 | NotEnoughCards => (print (Player.name pDef ^ " does not have enough cards to defend against this attack!"); (pAtk, tbl))
 	 | NoMatchingRank => (print "This rank has not been played yet! You can only attack with ranks that have already been played during this round."; (pAtk, tbl))
 end
 
@@ -163,14 +138,14 @@ local
 	  | NONE   => raise MissingAttackCard
 in
 fun defend pDef cDef cAtk tbl trump =
-    (let val h = hand pDef
+    (let val h = Player.hand pDef
      in
 	 case Card.find cDef h of
-	     SOME c' => let val name' = name pDef
+	     SOME c' => let val name' = Player.name pDef
 			    val hand' = Card.remove cDef h
 			    val tbl'  = defendHelper cDef cAtk tbl trump
 			in
-			    (Player (name', hand'), tbl')
+			    (Player.Player (name', hand'), tbl')
 			end
 	   | NONE    => raise MissingCard
      end)
