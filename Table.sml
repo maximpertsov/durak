@@ -132,7 +132,7 @@ local
     fun defendHelper cDef cAtk tbl trump =
 	case Card.find cAtk (unbeatenCards tbl) of
 	    SOME _ => if beats cDef cAtk trump then
-			  (cAtk, SOME cDef)::(remove cAtk tbl)
+			  addPair cAtk cDef (remove cAtk tbl)
 		      else
 			  raise CannotBeatCard
 	  | NONE   => raise MissingAttackCard
