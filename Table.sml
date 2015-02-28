@@ -18,8 +18,8 @@ structure Table :> TABLE =
 struct
 
 (* a table is represented as a list of "trick" pairs, which is an attacking card 
-   paired with either a defending card or nothing (hence the use of an option for 
-   the second item of the pair) *)
+   paired with either a defending card or nothing, hence the use of an option for 
+   the second item of the pair *)
 (* TODO: consider representing the table as Map rather than a list *)
 type table  = (Card.card * Card.card option) list
 
@@ -77,13 +77,9 @@ fun allCards tbl =
     in
 	loop (tbl, [])
     end
-
-(* hand card count information *)
-val numCards = length o Player.hand
-fun numExcessCards p tbl = numCards p - (length o unbeatenCards) tbl
 						   
-(* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk'    if 'c' is the same suit and higher rank than 'atk', or if 'c' has the 
-   trump suit *)
+(* check if the defending card 'c' beats the attacking card 'atk'. 'c' defeats 'atk'    
+   if 'c' is the same suit and higher rank than 'atk', or if 'c' has the trump suit *)
 fun beats cDef cAtk trump =
     if Card.sameSuit cDef cAtk then
 	case Card.compareRank cDef cAtk of
@@ -99,15 +95,20 @@ fun beats cDef cAtk trump =
 (*    2. EITHER the rank of the attacking card is already on the field  *)
 (*              OR no cards have been played yet *)
 local
-    fun attackHelper c p tbl =
-	if numExcessCards p tbl > 0 then
-	    case tbl of
-		[] => (c, NONE)::tbl
-	      | _  => if   Card.hasRank c (allCards tbl)
-		      then addCard c tbl
-		      else raise NoMatchingRank
-	else
-	    raise NotEnoughCards
+    fun attackHelper c pDef tbl =
+	let
+	    (* player can only be attacked if they have enough cards to defend *)
+	    val excessCards = (length o Player.hand) pDef - (length o unbeatenCards) tbl
+	in
+	    if excessCards > 0 then
+		case tbl of
+		    [] => (c, NONE)::tbl
+		  | _  => if   Card.hasRank c (allCards tbl)
+			  then addCard c tbl
+			  else raise NoMatchingRank
+	    else
+		raise NotEnoughCards
+	end
 in
 fun attack pAtk c pDef tbl =
     (let val h = Player.hand pAtk
