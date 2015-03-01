@@ -5,13 +5,16 @@ sig
     type table
     val Table : Card.card list -> table
     val same : table -> table -> bool (* Primarily for testing, but leave in final *)
-    val addCard  : Card.card -> table -> table
+    val addCard : Card.card -> table -> table
     val addPair : Card.card -> Card.card -> table -> table	  
     val remove : Card.card -> table -> table
     val attack : Player.player -> Card.card -> Player.player -> table ->
 		 Player.player * table
     val defend : Player.player -> Card.card -> Card.card -> table -> Card.suit ->
     		 Player.player * table
+    val pickup : Player.player -> table -> Player.player * table
+    val toString : table -> string
+    val toLongString : table -> string
 end
 
 structure Table :> TABLE =
@@ -96,9 +99,8 @@ fun beats cDef cAtk trump =
 (*              OR no cards have been played yet *)
 local
     fun attackHelper c pDef tbl =
-	let
-	    (* player can only be attacked if they have enough cards to defend *)
-	    val excessCards = (length o Player.hand) pDef - (length o unbeatenCards) tbl
+	(* player can only be attacked if they have enough cards to defend *)
+	let val excessCards = (length o Player.hand) pDef - (length o unbeatenCards) tbl
 	in
 	    if excessCards > 0 then
 		case tbl of
@@ -114,13 +116,13 @@ fun attack pAtk c pDef tbl =
     (let val h = Player.hand pAtk
      in
 	 case Card.find c h of
-	     SOME c' => let val name' = Player.name pAtk
+	     NONE    => raise MissingCard
+	   | SOME c' => let val name' = Player.name pAtk
 			    val hand' = Card.remove c' h
 			    val tbl'  = attackHelper c' pDef tbl
 			in
 			    (Player.Player (name', hand'), tbl')
 			end
-	   | NONE    => raise MissingCard
      end)
     handle MissingCard    => (print ("You don't have a " ^ Card.toString c ^ "!"); (pAtk, tbl))
 	 | NotEnoughCards => (print (Player.name pDef ^ " does not have enough cards to defend against this attack!"); (pAtk, tbl))
@@ -132,11 +134,11 @@ end
 local
     fun defendHelper cDef cAtk tbl trump =
 	case Card.find cAtk (unbeatenCards tbl) of
-	    SOME _ => if beats cDef cAtk trump then
+	    NONE   => raise MissingAttackCard
+	  | SOME _ => if beats cDef cAtk trump then
 			  addPair cAtk cDef (remove cAtk tbl)
 		      else
 			  raise CannotBeatCard
-	  | NONE   => raise MissingAttackCard
 in
 fun defend pDef cDef cAtk tbl trump =
     (let val h = Player.hand pDef
@@ -154,7 +156,24 @@ fun defend pDef cDef cAtk tbl trump =
 	 | CannotBeatCard    => (print ("Cannot beat " ^ Card.toString cAtk ^ " with " ^ Card.toString cDef ^ "!"); (pDef, tbl))
 	 | MissingAttackCard => (print (Card.toString cAtk ^ " has not been played or has already been beaten!"); (pDef, tbl))
 end
-	
+
+fun pickup p tbl =
+    (Player.draws (allCards tbl) p, Table [])
+
+local
+    fun toStringHelper f tbl =
+	let fun toStringPair f (c, cOpt) =
+		case cOpt of
+		    NONE    => f c
+		  | SOME c' => "{" ^ (f c) ^ "-" ^ (f c') ^ "}"
+	in
+	    String.concatWith " " (map (toStringPair f) tbl)
+	end
+in
+val toString = toStringHelper Card.toString
+val toLongString = toStringHelper Card.toLongString
+end
+
 end
 	
 (* TESTING *)

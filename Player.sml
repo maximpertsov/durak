@@ -10,6 +10,8 @@ sig
     val draw : Card.card -> player -> player
     val draws : Card.card list -> player -> player
     val discard : Card.card -> player -> player
+    val toString : player -> string
+    val toLongString : player -> string
 end
 
 structure Player :> PLAYER =
@@ -34,5 +36,13 @@ fun same p1 p2 =
 fun draw c p    = Player (name p, c::(hand p))
 fun draws cs p  = foldl (fn (c,p) => draw c p) p cs
 fun discard c p = Player (name p, Card.remove c (hand p))
-						   
+
+(* string representation *)
+local
+    fun toStringHelper f p = (name p) ^ ": " ^ (f o hand) p
+in
+val toString     = toStringHelper Card.toStrings
+val toLongString = toStringHelper Card.toLongStrings
+end
+
 end

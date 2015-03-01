@@ -177,6 +177,10 @@ val tableTests =
 	      [(Alice, JH, TenH, T [KC, TenH, EightS, KingS], Spades)]
 	      [(Player.discard JH Alice,
 		Table.addPair TenH JH (T [KC, EightS, KingS]))]
+    ,runTests "pickup" samePlayerTable
+	      (fn (p,t) => Table.pickup p t)
+	      [(Alice, T [KC, TenH, EightS, KingS])]
+	      [(Player.draws (rev [KC, TenH, EightS, KingS]) Alice, T [])]
     ]
 
 val testResults = checkAllTests (cardTests @ tableTests)
