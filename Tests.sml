@@ -134,9 +134,32 @@ val cardTests =
 	      [Card.shuffledDeck()]
 	      [[]]
     ]
+(* Player variables *)
+val P = Player.Player
+val p1 = P ("A", [])
+val p2 = P ("B", [])
+val playerTests =
+    [runTests "drawsUntil(Player)" op=
+	      (fn (l,cs,p) => (Player.toString o #1) (Player.drawsUntil l cs p))
+	      [(3, AllCards, p1), (3, AllCards, p2)]
+	      ["A: 4H 3H 2H", "B: 4H 3H 2H"]
+    ,runTests "drawsUntil(Cards)" op=
+	      (fn (l,cs,p) => (Card.toStrings o #2) (Player.drawsUntil l cs p))
+	      [(3, AllCards, p1)]
+	      [Card.toStrings (List.drop (AllCards, 3))]
+    ,runTests "allDrawsUntil(Players)" op=
+	      (fn (l,cs,ps) => ((map Player.toString) o #1)
+				    (Player.allDrawUntil l cs ps))
+	      [(3, AllCards, [p1, p2])]
+	      [["A: 4H 3H 2H", "B: 7H 6H 5H"]]
+    ,runTests "allDrawsUntil(Cards)" op=
+	      (fn (l,cs,ps) => (Card.toStrings o #2)
+				    (Player.allDrawUntil l cs ps))
+	      [(3, AllCards, [p1, p2])]
+	      [Card.toStrings (List.drop (AllCards, 6))]
+    ]
 (* Table variables *)
 val T = Table.Table
-val P = Player.Player
 val [QS, KD, SevenH, KC, TenH, EightS, KingS] =
     map Card [(12, Spades), (13, Diamonds), (7, Hearts),
 	      (13, Clubs), (10, Hearts), (8, Spades), (13, Spades)]
@@ -183,6 +206,6 @@ val tableTests =
 	      [(Player.draws (rev [KC, TenH, EightS, KingS]) Alice, T [])]
     ]
 
-val testResults = checkAllTests (cardTests @ tableTests)
+val testResults = checkAllTests (cardTests @ playerTests @ tableTests)
 
 end
