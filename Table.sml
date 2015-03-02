@@ -10,11 +10,13 @@ sig
     val remove : Card.card -> table -> table
     val attack : Player.player -> Card.card -> Player.player -> table ->
 		 Player.player * table
+    val attackUntil : int -> Player.player -> Card.card -> Player.player -> table ->
+    		      Player.player * table
     val defend : Player.player -> Card.card -> Card.card -> table -> Card.suit ->
     		 Player.player * table
     val pickup : Player.player -> table -> Player.player * table
     val toString : table -> string
-    val toLongString : table -> string
+    val toLongString : table -> string (* might not need this... *)
 end
 
 structure Table :> TABLE =
@@ -28,6 +30,7 @@ type table  = (Card.card * Card.card option) list
 
 exception MissingCard
 exception NotEnoughCards
+exception ExceedsAttackLimit
 exception NoMatchingRank
 exception CannotBeatCard
 exception MissingAttackCard
@@ -100,7 +103,7 @@ fun beats cDef cAtk trump =
 local
     fun attackHelper c pDef tbl =
 	(* player can only be attacked if they have enough cards to defend *)
-	let val excessCards = (length o Player.hand) pDef - (length o unbeatenCards) tbl
+	let val excessCards = Player.handSize pDef - (length o unbeatenCards) tbl
 	in
 	    if excessCards > 0 then
 		case tbl of
@@ -127,6 +130,13 @@ fun attack pAtk c pDef tbl =
     handle MissingCard    => (print ("You don't have a " ^ Card.toString c ^ "!"); (pAtk, tbl))
 	 | NotEnoughCards => (print (Player.name pDef ^ " does not have enough cards to defend against this attack!"); (pAtk, tbl))
 	 | NoMatchingRank => (print "This rank has not been played yet! You can only attack with ranks that have already been played during this round."; (pAtk, tbl))
+
+(* same as attackHelper but subject to a maximum attack limit *)
+fun attackUntil limit pAtk c pDef tbl =
+    (if   length tbl < limit
+     then attack pAtk c pDef tbl
+     else raise ExceedsAttackLimit)
+    handle ExceedsAttackLimit => (print "The maximum number of attacking cards has been reached!"; (pAtk, tbl))
 end
 
 (* specified player plays a card to beat an attacking card on the table.  *)
