@@ -14,6 +14,7 @@ sig
     val allDrawUntil : int -> Card.card list -> player list ->
 		       (player list * Card.card list)
     val discard : Card.card -> player -> player
+    val rotate : player list -> player list
     val toString : player -> string
     val toLongString : player -> string
 end
@@ -22,6 +23,8 @@ structure Player :> PLAYER =
 struct
 
 type player = {name: string, hand: Card.card list}
+
+exception NotEnoughPlayers
 
 (* player constuctor and getters *)
 fun Player (n, cs)    = {name = n, hand = cs}
@@ -62,7 +65,12 @@ fun allDrawUntil limit cs ps =
     in
 	loop (limit, cs, ps, [])
     end
-		       
+
+fun rotate ps =
+    case ps of
+	[]    => raise NotEnoughPlayers
+      | p::[] => raise NotEnoughPlayers
+      | p::ps => ps @ [p]
 			 
 (* string representation *)
 local
