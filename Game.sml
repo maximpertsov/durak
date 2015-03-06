@@ -3,35 +3,31 @@ use "Table.sml";
 structure Game =
 struct
 
+datatype action = Play    (* attack or defend *)
+		| Stay    (* refrain from attacking *)
+		| Giveup  (* concede attack and pick up cards *)
+ 
 datatype move = Draw   of Player.player * Card.card list
 	      | Attack of Player.player * Player.player * Card.card
 	      | Defend of Player.player * Card.card * Card.card 
 	      | Pickup of Player.player * Card.card list
 	      | Skip   of Player.player
-	      | Giveup of Player.player
 	      | Clear  of Card.card list 
 
 exception NoPlayers
 exception InvalidMove
 exception NotImplemented
 
-fun Move c (p1, p2, c1, c2, deck, tbl) =
-    let val moveMap = [(#"1", Attack (p1, p2, c1)),
-		       (#"2", Defend (p1, c1, c2)),
-		       (#"3", Skip (p1)),
-		       (#"4", Giveup (p1))]
-    in
-	case List.find (fn (k,_) => k = c) moveMap of
-	    SOME (k,m) => SOME m
-	  | _          => NONE
-    end
+val moveMap1 = [(#"1", Play),
+		(#"2", Stay),
+		(#"3", Giveup)]
 
-fun pickCard p = raise NotImplemented
-
-fun readKey () =
+fun readKey moveMap =
     case TextIO.input1 TextIO.stdIn of
-	NONE   => readKey ()
-      | SOME c => Move c 
+	NONE   => readKey moveMap
+      | SOME c => (case List.find (fn (k,_) => k = c) moveMap of
+		       SOME (k,m) => SOME m
+		     | _          => raise InvalidMove)
     	      
 fun game ps deck =
     let fun loop (ps, deck, tbl, moves) =
