@@ -2,6 +2,8 @@ signature CARD =
 sig
     datatype suit = Spades | Clubs | Diamonds | Hearts
     type card
+    type ord_key = card
+    val compare : card * card -> order
     val Card : int * suit -> card
     val Card' : int * int -> card (* ONLY FOR TESTING!! *)
     val sameSuit : card -> card -> bool
@@ -106,7 +108,7 @@ val suitStrings  = ["S", "D", "C", "H"] (* ["♠", "♦", "♣", "♥"] *)
 val suitLongStrs = ["Spades", "Diamonds", "Clubs", "Hearts"]
 val suitStrMap   = ListPair.zip(suits, suitStrings)
 val suitLStrMap  = ListPair.zip(suits, suitLongStrs)
-			      
+			       
 (* card comparisons *)
 fun sameSuit (r1, s1) (r2, s2) = s1 = s2
 fun sameRank (r1, s1) (r2, s2) = r1 = r2
@@ -138,6 +140,20 @@ fun compareRank c1 c2 =
     in
 	Int.compare vs
     end
+
+(* unique card key - for implementing Ordered Maps and Sets *)
+type ord_key = card
+fun cardId (r, s) =
+    let fun suitId s =	   
+	    case s of
+		Hearts   => 1
+	      | Clubs    => 2
+	      | Diamonds => 3
+	      | Spades   => 4
+    in
+	100 * (suitId s) + value (r, s)
+    end
+fun compare (c1,c2) = Int.compare (cardId c1, cardId c2)
 
 (* convert cards to strings *)
 local 
