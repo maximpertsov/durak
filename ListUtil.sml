@@ -5,6 +5,7 @@ sig
     val invassoc : 'b -> ('a * 'b) list -> 'a option
     val listsOfN : int -> 'a list
     val randomSelect : int -> 'a list -> 'a list
+    val sort : (int * int) -> order -> 'a list -> 'a list
 end
 
 structure ListUtil =
@@ -73,5 +74,34 @@ fun randomSelect n xs =
     in
 	loop(n, length xs, xs, [])
     end
-		     
+
+(* sort - implemented via merge sort *)
+local
+    fun split' f xs =
+	let
+	    fun loop (xs, lacc, racc, left) =
+		case xs of
+		    []     => (f lacc, f racc)
+		  | x::xs' => if   left
+			      then loop(xs', x::lacc, racc, false)
+			      else loop(xs', lacc, x::racc, true)
+	in
+	    loop (xs, [], [], true)
+	end
+	    
+    fun merge f (xs, ys) =
+	case (xs, ys) of
+	    ([], ys)         => ys
+	  | (xs, [])         => xs
+	  | (x::xs', y::ys') => (case f(y,x) of
+				     LESS => y::(merge f (xs, ys'))
+				   | _    => x::(merge f (xs', ys)))
+in
+fun sort f xs =
+    case xs of
+	[]    => []
+      | x::[] => [x]
+      | _     => merge f (split' (sort f) xs)
+end
+		       
 end

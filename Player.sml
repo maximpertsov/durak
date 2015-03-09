@@ -15,6 +15,7 @@ sig
 		       (player list * Card.card list)
     val discard : Card.card -> player -> player
     val rotate : player list -> player list
+    val lowest : Card.suit -> player -> Card.card option
     val toString : player -> string
     val toLongString : player -> string
 end
@@ -66,11 +67,23 @@ fun allDrawUntil limit cs ps =
 	loop (limit, cs, ps, [])
     end
 
+(* bring next player to front of player list *)
 fun rotate ps =
     case ps of
 	[]    => raise NotEnoughPlayers
       | p::[] => raise NotEnoughPlayers
       | p::ps => ps @ [p]
+
+(* find the lowest card of particular suit in hand *)
+fun lowest s p =
+    let
+	fun compareRank' (c1,c2) = Card.compareRank c1 c2
+	fun suitFilter c = Card.sameSuit c (Card.Card (2, s))
+    in				    
+	case ListUtil.sort compareRank' (List.filter suitFilter (hand p)) of
+	    []     => NONE
+	  | c::cs' => SOME c
+    end
 			 
 (* string representation *)
 local
