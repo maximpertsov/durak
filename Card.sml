@@ -1,3 +1,5 @@
+use "ListUtil.sml";
+
 signature CARD =
 sig
     datatype suit = Spades | Clubs | Diamonds | Hearts
@@ -33,63 +35,13 @@ type card     = rank * suit
 
 exception NotACard
 		       
-(* helper functions *)
-fun range i j =
-    if j < i then
-    	rev (range j i)
-    else
-	List.tabulate(j-i+1, (fn x => x+i))
-
-fun mapFind k zip =
-    case List.find (fn (k',_) => k' = k) zip of
-	SOME (k,v) => SOME v
-      | NONE       => NONE
-			  
-fun mkRandomSeed () =
-    let val date = Date.fromTimeLocal(Time.now())
-	val min  = Date.minute(date)
-	val sec  = Date.second(date)
-    in
-	Random.rand(min, sec)
-    end
-
-fun deleteAt (xs, n) = List.take(xs,n) @ List.drop(xs,n+1)
-
-(* randomly select n elements from a list *)
-fun randomSelect n xs =
-    let val r = mkRandomSeed()
-	fun loop (n, max, xs, acc) =
-	    if n < 1 orelse max = 0 then
-		acc
-	    else
-		let val k = Random.randRange (0,max-1) r
-		    val x = List.nth(xs, k)
- 		in
-		    loop(n-1, max-1, deleteAt(xs,k), x::acc)
-		end
-    in
-	loop(n, length xs, xs, [])
-    end
-
-(* turns a list into a list of lists, where all sub-lists are of length n 
-   [the last sub-list may be shorter] *)
-fun listsOfN n xs =
-    let fun loop (m, xs, sub, acc) =
-	    case xs of
-		[]     => (case sub of
-			       [] => acc
-			     | _  => sub::acc)
-	      | x::xs' => let val sub' = x::sub
-			  in
-			      if m > 1 then
-				  loop(m-1, xs', sub', acc)
-			      else
-				  loop(n, xs', [], (rev sub')::acc)
-			  end
-    in
-	(rev o loop) (n, xs, [], [])
-    end
-		
+(* helper functions imported from ListUtil *)
+val range = ListUtil.range
+val assoc = ListUtil.assoc
+val invassoc = ListUtil.invassoc
+val randomSelect = ListUtil.randomSelect
+val listsOfN = ListUtil.listsOfN
+    
 (* rank string representations *)
 val ranks        = [Ace, King, Queen, Jack] @ map Num (range 10 2)
 val rankStrings  = ["A", "K", "Q", "J"] @ map Int.toString (range 10 2)
@@ -100,7 +52,6 @@ val rankLStrMap  = ListPair.zip(ranks, rankLongStrs)
 (* rank values *)
 val rankValus    = range 14 2
 val rankValuMap  = ListPair.zip(ranks, rankValus)
-val valuRankMap  = ListPair.zip(rankValus, ranks)
 
 (* suit string representations *)
 val suits        = [Spades, Diamonds, Clubs, Hearts]
@@ -108,6 +59,10 @@ val suitStrings  = ["S", "D", "C", "H"] (* ["♠", "♦", "♣", "♥"] *)
 val suitLongStrs = ["Spades", "Diamonds", "Clubs", "Hearts"]
 val suitStrMap   = ListPair.zip(suits, suitStrings)
 val suitLStrMap  = ListPair.zip(suits, suitLongStrs)
+
+(* suit ids *)
+val suitIds    = range 4 1
+val suitIdMap  = ListPair.zip(suits, suitIds)       
 			       
 (* card comparisons *)
 fun sameSuit (r1, s1) (r2, s2) = s1 = s2
@@ -131,7 +86,7 @@ fun suit (r, s) = s
 						  
 (* calculate card value *)
 fun value (r, s) =
-    case mapFind r rankValuMap of
+    case assoc r rankValuMap of
 	SOME v => v
       | NONE   => raise NotACard
 
@@ -141,24 +96,22 @@ fun compareRank c1 c2 =
 	Int.compare vs
     end
 
-(* unique card key - for implementing Ordered Maps and Sets *)
+(* unique card key for implementing Ordered Maps and Sets *)
 type ord_key = card
-fun cardId (r, s) =
-    let fun suitId s =	   
-	    case s of
-		Hearts   => 1
-	      | Clubs    => 2
-	      | Diamonds => 3
-	      | Spades   => 4
+		   
+fun compare (c1,c2) =
+    let fun cardId (r, s) =
+	    case assoc s suitIdMap of
+		NONE     => raise NotACard
+	      | SOME sid => 100 * sid + value (r, s)
     in
-	100 * (suitId s) + value (r, s)
+	Int.compare (cardId c1, cardId c2)
     end
-fun compare (c1,c2) = Int.compare (cardId c1, cardId c2)
-
+							  
 (* convert cards to strings *)
 local 
     fun toStringHelper rMap sMap midChr (r, s) =
-	case (mapFind r rMap, mapFind s sMap) of
+	case (assoc r rMap, assoc s sMap) of
 	    (NONE, _)          => raise NotACard
 	  | (_, NONE)          => raise NotACard
 	  | (SOME r', SOME s') => r' ^ midChr ^ s'
@@ -172,8 +125,8 @@ end
 local
     fun toStringsHelper f delimChr = (String.concatWith delimChr) o (map f)
 in
-val toStrings         = toStringsHelper toString " "
-val toLongStrings     = toStringsHelper toLongString ", "
+val toStrings     = toStringsHelper toString " "
+val toLongStrings = toStringsHelper toLongString ", "
 end
 					
 (* print cards in list, specifying how many cards should appear on each line *)
@@ -195,23 +148,16 @@ fun shuffledDeck () = shuffled fullDeck
 
 (* card constructor *)
 fun Card (i, s) =
-    case mapFind i valuRankMap of
+    case invassoc i rankValuMap of
 	SOME r => (r, s)
       | NONE   => raise NotACard
 
 (* alternate card constructor - ONLY FOR TESTING! *)
 fun Card' (i, j) =
-    case mapFind i valuRankMap of
+    case invassoc i rankValuMap of
 	NONE   => raise NotACard
-      | SOME r => let val s =
-			  case j of
-			      1 => Hearts
-			    | 2 => Clubs
-			    | 3 => Diamonds
-			    | 4 => Spades
-			    | _ => raise NotACard
-		  in
-		      (r, s)
-		  end
-			
+      | SOME r => (case invassoc j suitIdMap of
+		       NONE   => raise NotACard
+		     | SOME s => (r, s))
+
 end
