@@ -28,12 +28,35 @@ struct
 (* TODO: consider representing the table as Map rather than a list *)
 type table  = (Card.card * Card.card option) list
 
-exception MissingCard
-exception NotEnoughCards
-exception ExceedsAttackLimit
-exception NoMatchingRank
-exception CannotBeatCard
-exception MissingAttackCard
+exception NoCard         of Card.card * Player.player * table
+exception NotEnoughCards of Player.player * Player.player * table
+exception ExceedsLimit   of int * Player.player * table
+exception BadRank        of Player.player * table
+exception CannotBeat     of Card.card * Card.card * Player.player * table
+exception BadAttack      of Card.card * Player.player * table
+exception NotImplemented
+
+(* exception handler functions *)
+fun handler exn =
+    let fun handleOutput (pstr, res) = (print (pstr ^ "\n"); res)
+	fun handleHelper exn =
+	    case exn of
+		NoCard (c,p,tbl)                => ("You don't have a " ^ Card.toString c ^ "!"
+						   ,(p, tbl))
+	      | NotEnoughCards (pDef,pAtk,tbl)  => (Player.name pDef ^ " does not have enough cards to defend against this attack!"
+						   ,(pAtk, tbl))
+	      | ExceedsLimit (l,pAtk,tbl)       => ("The maximum number of attacking cards (" ^ Int.toString l ^ ") has been reached!"
+						   ,(pAtk, tbl))
+	      | BadRank (pAtk,tbl)              => ("This rank has not been played yet! You can only attack with ranks that have already been played during this round."
+						   ,(pAtk, tbl))
+	      | CannotBeat (cAtk,cDef,pDef,tbl) => ("Cannot beat " ^ Card.toString cAtk ^ " with " ^ Card.toString cDef ^ "!"
+						   ,(pDef, tbl))
+	      | BadAttack (cAtk,pDef,tbl)       => (Card.toString cAtk ^ " has not been played or has already been beaten!"
+						   ,(pDef, tbl)) 
+	      | _                               => raise NotImplemented
+    in
+	handleOutput (handleHelper exn)
+    end
 
 (* Create a new table with some unbeaten cards already played *)
 fun Table cs = map (fn c => (c, NONE)) cs
@@ -110,16 +133,16 @@ local
 		    [] => (c, NONE)::tbl
 		  | _  => if   Card.hasRank c (allCards tbl)
 			  then addCard c tbl
-			  else raise NoMatchingRank
+			  else raise BadRank (pDef, tbl)
 	    else
-		raise NotEnoughCards
+		raise NotEnoughCards (pDef, pDef, tbl)
 	end
 in
 fun attack pAtk c pDef tbl =
     (let val h = Player.hand pAtk
      in
 	 case Card.find c h of
-	     NONE    => raise MissingCard
+	     NONE    => raise NoCard (c, pAtk, tbl)
 	   | SOME c' => let val name' = Player.name pAtk
 			    val hand' = Card.remove c' h
 			    val tbl'  = attackHelper c' pDef tbl
@@ -127,16 +150,16 @@ fun attack pAtk c pDef tbl =
 			    (Player.Player (name', hand'), tbl')
 			end
      end)
-    handle MissingCard    => (print ("You don't have a " ^ Card.toString c ^ "!"); (pAtk, tbl))
-	 | NotEnoughCards => (print (Player.name pDef ^ " does not have enough cards to defend against this attack!"); (pAtk, tbl))
-	 | NoMatchingRank => (print "This rank has not been played yet! You can only attack with ranks that have already been played during this round."; (pAtk, tbl))
+    handle NotEnoughCards (p, p', tbl) => handler (NotEnoughCards (p, pAtk, tbl))
+	 | BadRank (p', tbl)           => handler (BadRank (pAtk, tbl))
+	 | exn => handler exn
 
 (* same as attackHelper but subject to a maximum attack limit *)
 fun attackUntil limit pAtk c pDef tbl =
     (if   length tbl < limit
      then attack pAtk c pDef tbl
-     else raise ExceedsAttackLimit)
-    handle ExceedsAttackLimit => (print "The maximum number of attacking cards has been reached!"; (pAtk, tbl))
+     else raise ExceedsLimit (limit, pAtk, tbl))
+    handle exn => handler exn
 end
 
 (* specified player plays a card to beat an attacking card on the table.  *)
@@ -144,11 +167,11 @@ end
 local
     fun defendHelper cDef cAtk tbl trump =
 	case Card.find cAtk (unbeatenCards tbl) of
-	    NONE   => raise MissingAttackCard
+	    NONE   => raise BadAttack (cAtk, Player.Player ("x", []), tbl)
 	  | SOME _ => if beats cDef cAtk trump then
 			  addPair cAtk cDef (remove cAtk tbl)
 		      else
-			  raise CannotBeatCard
+			  raise CannotBeat (cAtk, cDef, Player.Player ("x", []), tbl)
 in
 fun defend pDef cDef cAtk tbl trump =
     (let val h = Player.hand pDef
@@ -160,11 +183,11 @@ fun defend pDef cDef cAtk tbl trump =
 			in
 			    (Player.Player (name', hand'), tbl')
 			end
-	   | NONE    => raise MissingCard
+	   | NONE    => raise NoCard (cDef, pDef, tbl)
      end)
-    handle MissingCard       => (print ("You don't have a " ^ Card.toString cDef ^ "!"); (pDef, tbl))
-	 | CannotBeatCard    => (print ("Cannot beat " ^ Card.toString cAtk ^ " with " ^ Card.toString cDef ^ "!"); (pDef, tbl))
-	 | MissingAttackCard => (print (Card.toString cAtk ^ " has not been played or has already been beaten!"); (pDef, tbl))
+    handle CannotBeat (cAtk, cDef, p', tbl) => handler (CannotBeat (cAtk, cDef, pDef, tbl))
+	 | BadAttack (cAtk, p', tbl)        => handler (BadAttack (cAtk, pDef, tbl))
+	 | exn => handler exn 
 end
 
 fun pickup p tbl =
@@ -197,3 +220,12 @@ end
 (* val p2 = Table.Player ("Rishi", List.take (d', 6)) *)
 (* val p2Str = Card.toStrings (Table.hand p2) *)
 (* val d'' = List.drop (d', 6) *)
+
+val p = Player.Player ("A", [Card.Card' (2,4)]);
+
+val t = Table.Table [];
+
+val p' = p;
+
+val c = Card.Card' (2,4);
+Table.attack p (Card.Card' (3,3)) p' t;
