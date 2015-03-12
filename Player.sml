@@ -7,6 +7,7 @@ sig
     val name : player -> string
     val hand : player -> Card.card list
     val handSize : player -> int
+    val find : Card.card -> player -> Card.card option
     val same : player -> player -> bool
     val draw : Card.card -> player -> player
     val draws : Card.card list -> player -> player
@@ -32,6 +33,9 @@ fun Player (n, cs)    = {name = n, hand = cs}
 fun name (p : player) = #name p
 fun hand (p : player) = #hand p
 val handSize = length o hand
+
+(* check if player has card *)
+fun find c p = Card.find c (hand p)
 
 (* check if players are the same *)
 fun same p1 p2 =

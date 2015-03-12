@@ -17,6 +17,7 @@ sig
     val suit : card -> suit
     val value : card -> int
     val compareRank : card -> card -> order
+    val beats : card -> card -> suit -> bool
     val toString   : card -> string
     val toStrings  : card list -> string
     val toStrings' : int -> card list -> unit
@@ -90,11 +91,22 @@ fun value (r, s) =
 	SOME v => v
       | NONE   => raise NotACard
 
+(* card comparison functions *)
 fun compareRank c1 c2 =
     let val vs = (value c1, value c2)
     in
 	Int.compare vs
     end
+
+(* check if card 'cd' beats card 'ca' based on the following rules: *)
+(* trumps beat all cards except other trumps of higher rank *)
+(* non-trumps beat all cards of the same suit with lower rank *)
+fun beats cd ca trump =
+    if sameSuit cd ca then
+	case compareRank cd ca of
+	    GREATER => true
+	  | _       => false
+    else suit cd = trump
 
 (* unique card key for implementing Ordered Maps and Sets *)
 type ord_key = card
