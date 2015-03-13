@@ -14,10 +14,10 @@ sig
     val addCard : Card.card -> table -> table
     val addPair : Card.card -> Card.card -> table -> table	  
     val remove : Card.card -> table -> table
-    val attack : Player.player -> Card.card -> Player.player -> table ->
+    val attack : Player.player -> Card.card -> Player.player -> table -> int ->
     		 Player.player * table
-    val attackUntil : int -> Player.player -> Card.card -> Player.player -> table ->
-    		      Player.player * table
+    (* val attackUntil : int -> Player.player -> Card.card -> Player.player -> table -> *)
+    (* 		      Player.player * table *)
     val defend : Player.player -> Card.card -> Card.card -> table -> Card.suit ->
     		 Player.player * table
     val pickup : Player.player -> table -> Player.player * table
@@ -39,7 +39,7 @@ exception TooFewCards  of Player.player * Player.player * table
 exception ExceedsLimit of int * Player.player * table
 exception BadRank      of Player.player * table
 exception CannotBeat   of Card.card * Card.card * Player.player * table
-exception BadAttack    of Card.card * Player.player * table
+exception NoAttack    of Card.card * Player.player * table
 exception NotImplemented
 
 (* exception handler functions *)
@@ -57,7 +57,7 @@ fun handler exn =
 					     ,(pa, tbl))
 	      | CannotBeat (ca,cd,pd,tbl) => ("Cannot beat " ^ Card.toString ca ^ " with " ^ Card.toString cd ^ "!"
 					     ,(pd, tbl))
-	      | BadAttack (ca,pd,tbl)     => (Card.toString ca ^ " has not been played or has already been beaten!"
+	      | NoAttack (ca,pd,tbl)     => (Card.toString ca ^ " has not been played or has already been beaten!"
 					     ,(pd, tbl)) 
 	      | _                         => raise NotImplemented
     in
@@ -123,66 +123,66 @@ fun allCards tbl =
     end
 
 local
-    (* check if player has enough cards to accept additional attacks *)
-    fun hasExcessCards pd tbl =
-	Player.handSize pd - (length o unbeatenCards) tbl > 0
+    (* check if the number of attack cards on the table is below the attack limit *)
+    fun ifBelowLimit (pa, ca, pd, tbl, lim) =
+	if length tbl < lim
+	then (pa, ca, pd, tbl)
+	else raise ExceedsLimit (lim, pa, tbl)
+	    		   
+    (* check if player has card and remove it if they do *)
+    fun ifHasCard (pa, ca, pd, tbl) =
+	case Player.find ca pa of
+	    NONE   => raise NoCard (ca, pa, tbl)
+	  | SOME _ => (Player.discard ca pa, ca, pd, tbl)
+
+    (* check if defending player has enough cards to accept additional attacks *)
+    fun ifHasExcess (pa, ca, pd, tbl) =
+	if Player.handSize pd - (length o unbeatenCards) tbl > 0
+	then (pa, ca, pd, tbl)
+	else raise TooFewCards (pd, pa, tbl)
 
     (* add card to table if table is empty or if a matching rank is on the table *)
-    fun addIfHasRank pa ca tbl =
-	case tbl of
-	    [] => addCard ca tbl
-	  | _  => if   Card.hasRank ca (allCards tbl)
-		  then addCard ca tbl
-		  else raise BadRank (pa, tbl)
+    fun ifLegalRank (pa, ca, pd, tbl) =
+	if null tbl orelse Card.hasRank ca (allCards tbl)
+	then (pa, addCard ca tbl)
+	else raise BadRank (pa, tbl)
 
-    (* attack if above conditions hold but without checking if player has card *)
-    fun attackHelper pa ca pd tbl =
-	if   hasExcessCards pd tbl
-	then addIfHasRank pa ca tbl
-	else raise TooFewCards (pd, pa, tbl)
+    (* process legal attacks and appropriately handle illegal attacks *)
+    fun ifLegalAttack (pa, ca, pd, tbl, lim) =
+	(ifLegalRank o ifHasExcess o ifHasCard o ifBelowLimit) (pa, ca, pd, tbl, lim)
+	handle exn => handler exn 
 in
 (* primary attack function *)
-fun attack pa ca pd tbl =
-    (case Player.find ca pa of
-	 NONE     => raise NoCard (ca, pa, tbl)
-       | SOME ca' => let val pa'  = Player.discard ca' pa
-			 val tbl' = attackHelper pa ca' pd tbl
-		     in
-			 (pa', tbl')
-		     end)
-    handle exn => handler exn
-			  
-(* same as attack function above but subject to a maximum attack limit *)
-fun attackUntil lim pa ca pd tbl =
-    (if   length tbl < lim
-     then attack pa ca pd tbl
-     else raise ExceedsLimit (lim, pa, tbl))
-    handle exn => handler exn
+fun attack pa ca pd tbl lim = ifLegalAttack (pa, ca, pd, tbl, lim)
 end
 
-(* specified player plays a card to beat an attacking card on the table. *)
 local
-    (* add pair (pa, SOME pd) to table if pd beats pa *)
-    fun addIfBeats pd cd ca tbl trump =
+    (* check if player has card and remove it if they do *)
+    fun ifHasCard (pd, cd, ca, tbl, trump) =
+	case Player.find cd pd of
+	    NONE   => raise NoCard (cd, pd, tbl)
+	  | SOME _ => (Player.discard cd pd, cd, ca, tbl, trump)
+
+    (* check if corresponding attack card exists and is unbeaten *)
+    fun ifAttackExists (pd, cd, ca, tbl, trump) =
+	case Card.find ca (unbeatenCards tbl) of
+	    NONE   => raise NoAttack (ca, pd, tbl)
+	  | SOME _ => (pd, cd, ca, tbl, trump)
+
+    (* check if card 'cd' can beat card 'ca' *)
+    (* add the Beat pair to the table if it does *)
+    fun ifBeats (pd, cd, ca, tbl, trump) =
 	if   Card.beats cd ca trump
-	then addPair ca cd (remove ca tbl)
+	then (pd, addPair ca cd (remove ca tbl))
 	else raise CannotBeat (ca, cd, pd, tbl)
 
-    (* defend if above conditions hold but without check if player has card *)
-    fun defendHelper pd cd ca tbl trump =
-	case Card.find ca (unbeatenCards tbl) of
-	    NONE   => raise BadAttack (ca, pd, tbl)
-	  | SOME _ => addIfBeats pd cd ca tbl trump
+    (* process legal attacks and appropriately handle illegal attacks *)
+    fun ifLegalDefense (pd, cd, ca, tbl, trump) =
+	(ifBeats o ifAttackExists o ifHasCard) (pd, cd, ca, tbl, trump)
+	handle exn => handler exn	    
 in
-fun defend pd cd ca tbl trump =
-    (case Player.find cd pd of
-	 NONE     => raise NoCard (cd, pd, tbl)
-       | SOME cd' => let val pd' = Player.discard cd' pd
-			 val tbl'  = defendHelper pd cd' ca tbl trump
-		     in
-			 (pd', tbl')
-		     end)
-    handle exn => handler exn
+(* primary defense function *)
+fun defend pd cd ca tbl trump = ifLegalDefense (pd, cd, ca, tbl, trump)
 end
 
 (* (* player picks up all cards on the table *) *)

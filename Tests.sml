@@ -190,7 +190,7 @@ val tableTests =
 	       P ("By-The-Book Bob",  [KD, SevenH]),
 	       P ("Aggressive Alice", [SixS, JH, SixH])]
     ,runTests "attack" samePlayerTable
-	      (fn (pa,ca,pd,t) => Table.attack pa ca pd t)
+	      (fn (pa,ca,pd,t) => Table.attack pa ca pd t 6)
 	      [(Alice, SixS, Bob, T []),
 	       (Bob, KD, Alice, T [KC, TenH])]
 	      [(P ("Aggressive Alice", [JH, SixH]), T [SixS]),
