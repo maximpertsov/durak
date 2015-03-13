@@ -15,7 +15,7 @@ sig
     val addPair : Card.card -> Card.card -> table -> table	  
     val remove : Card.card -> table -> table
     val attack : Player.player -> Card.card -> Player.player -> table ->
-		 Player.player * table
+    		 Player.player * table
     val attackUntil : int -> Player.player -> Card.card -> Player.player -> table ->
     		      Player.player * table
     val defend : Player.player -> Card.card -> Card.card -> table -> Card.suit ->
@@ -28,11 +28,11 @@ end
 structure Table :> TABLE =
 struct
 
-(* a table is represented as a list of "trick" pairs, which is an attacking card 
-   paired with either a defending card or nothing, hence the use of an option for 
-   the second item of the pair *)
-(* TODO: consider representing the table as Map rather than a list *)
-type table  = (Card.card * Card.card option) list
+(* a table is a list of card trick pairs *)
+datatype trick = Attack of Card.card
+	       | Beat of Card.card * Card.card
+type table = trick list
+(* type table     = (Card.card * Card.card option) list *)
 
 exception NoCard       of Card.card * Player.player * table
 exception TooFewCards  of Player.player * Player.player * table
@@ -65,50 +65,59 @@ fun handler exn =
     end
 
 (* Create a new table with some unbeaten cards already played *)
-fun Table cs = map (fn c => (c, NONE)) cs
+(* fun Table cs = map (fn c => (c, NONE)) cs *)
+fun Table cs = map Attack cs
+
+fun beaten t =
+    case t of
+	Attack _ => false
+      | Beat _   => true
+
+fun attackCard t =
+    case t of
+	Attack ca    => ca
+      | Beat (ca, _) => ca
+
+fun defendCard t =
+    case t of
+	Attack _     => NONE
+      | Beat (_, cd) => SOME cd
+
+fun sameTrick t1 t2 =
+    case (t1, t2) of
+	(Attack ca1, Attack ca2)           => Card.same ca1 ca2
+      | (Beat (ca1, cd1), Beat (ca2, cd2)) => Card.same ca1 ca2
+					      andalso Card.same cd1 cd2
+      | _                                  => false 
 
 (* check if two tables have the same card layout *)
-fun same tbl1 tbl2 =
-    let fun sameCardOpt c1opt c2opt =
-	    case (c1opt, c2opt) of
-		(SOME c1, SOME c2) => Card.same c1 c2
-	      | (NONE, NONE)       => true
-	      | _                  => false
-	fun sameCardPair ((ca1, cd1), (ca2, cd2)) =
-	    (Card.same ca1 ca2) andalso (sameCardOpt cd1 cd2)
-    in
-	ListPair.allEq sameCardPair (tbl1, tbl2)
-    end
+fun same tbl1 tbl2 = ListPair.allEq (fn (t1, t2) => sameTrick t1 t2) (tbl1, tbl2)
 
 (* add an unbeaten card to the table *)
-fun addCard c tbl = (c, NONE)::tbl
-
-(* add a trick pair to the table *)	       
-fun addPair ca cd tbl = (ca, SOME cd)::tbl
-
+fun addCard ca tbl = (Attack ca)::tbl
+		   
+(* add a trick pair to the table *)
+fun addPair ca cd tbl = (Beat (ca, cd))::tbl
+				    
 (* remove a card/trick pair from the table  *)
-(* do nothing if the specified card cannot be found *)
 fun remove c tbl =
     case tbl of
-	[]             => []
-      | (c1, c2)::tbl' => if   Card.same c c1
-			  then tbl'
-			  else (c1, c2)::(remove c tbl')   
-    
+	[]      => []
+      | t::tbl' => if Card.same c (attackCard t)
+		   then tbl'
+		   else t::(remove c tbl')
+					     
 (* return a list of all cards on the table that have not been beaten yet *)
 fun unbeatenCards tbl =
-    let val (beat, unbeat) = List.partition (fn (_, cd) => isSome cd) tbl
-    in
-	map #1 unbeat
-    end
-
+	map attackCard (List.filter (not o beaten) tbl)
+	
 (* return a list of all cards on the table *)
 fun allCards tbl =
     let fun loop (tbl, acc) =
-	case tbl of
-	    []                  => acc
-	  | (ca, SOME cd)::tbl' => loop (tbl', cd::ca::acc)
-	  | (ca, NONE)::tbl'    => loop (tbl', ca::acc)
+	    case tbl of
+		[]                    => acc
+	      | (Attack ca)::tbl'     => loop (tbl', ca::acc)
+	      | (Beat (ca, cd))::tbl' => loop (tbl', cd::ca::acc)
     in
 	loop (tbl, [])
     end
@@ -121,16 +130,18 @@ local
     (* add card to table if table is empty or if a matching rank is on the table *)
     fun addIfHasRank pa ca tbl =
 	case tbl of
-	    [] => (ca, NONE)::tbl
+	    [] => addCard ca tbl
 	  | _  => if   Card.hasRank ca (allCards tbl)
 		  then addCard ca tbl
 		  else raise BadRank (pa, tbl)
-			      
+
+    (* attack if above conditions hold but without checking if player has card *)
     fun attackHelper pa ca pd tbl =
 	if   hasExcessCards pd tbl
 	then addIfHasRank pa ca tbl
 	else raise TooFewCards (pd, pa, tbl)
 in
+(* primary attack function *)
 fun attack pa ca pd tbl =
     (case Player.find ca pa of
 	 NONE     => raise NoCard (ca, pa, tbl)
@@ -141,7 +152,7 @@ fun attack pa ca pd tbl =
 		     end)
     handle exn => handler exn
 			  
-(* same as attackHelper but subject to a maximum attack limit *)
+(* same as attack function above but subject to a maximum attack limit *)
 fun attackUntil lim pa ca pd tbl =
     (if   length tbl < lim
      then attack pa ca pd tbl
@@ -156,7 +167,8 @@ local
 	if   Card.beats cd ca trump
 	then addPair ca cd (remove ca tbl)
 	else raise CannotBeat (ca, cd, pd, tbl)
-    
+
+    (* defend if above conditions hold but without check if player has card *)
     fun defendHelper pd cd ca tbl trump =
 	case Card.find ca (unbeatenCards tbl) of
 	    NONE   => raise BadAttack (ca, pd, tbl)
@@ -170,19 +182,19 @@ fun defend pd cd ca tbl trump =
 		     in
 			 (pd', tbl')
 		     end)
-    handle exn => handler exn 
+    handle exn => handler exn
 end
 
-(* player picks up all cards on the table *)
+(* (* player picks up all cards on the table *) *)
 fun pickup p tbl =
     (Player.draws (allCards tbl) p, Table [])
-
+	
 local
     fun toStringHelper f tbl =
-	let fun toStringPair f (c, cOpt) =
-		case cOpt of
-		    NONE    => f c
-		  | SOME c' => "{" ^ (f c) ^ "-" ^ (f c') ^ "}"
+	let fun toStringPair f t =
+		case t of
+		    Attack ca    => f ca
+		  | Beat (ca,cd) => "{" ^ (f ca) ^ "-" ^ (f cd) ^ "}"
 	in
 	    String.concatWith " " (map (toStringPair f) tbl)
 	end
@@ -194,22 +206,12 @@ end
 end
 	
 (* TESTING *)
-(* val d = Card.shuffledDeck() *)
-(* val dStr = Card.toStrings d *)
 
-(* val p1 = Table.Player ("Max", List.take (d, 6)) *)
-(* val p1Str = Card.toStrings (Table.hand p1) *)
-(* val d' = List.drop (d, 6) *)
-	    
-(* val p2 = Table.Player ("Rishi", List.take (d', 6)) *)
-(* val p2Str = Card.toStrings (Table.hand p2) *)
-(* val d'' = List.drop (d', 6) *)
+(* val p = Player.Player ("A", [Card.Card' (2,4)]); *)
 
-val p = Player.Player ("A", [Card.Card' (2,4)]);
+(* val t = Table.Table []; *)
 
-val t = Table.Table [];
+(* val p' = p; *)
 
-val p' = p;
-
-val c = Card.Card' (2,4);
-Table.attack p (Card.Card' (3,3)) p' t;
+(* val c = Card.Card' (2,4); *)
+(* Table.attack p (Card.Card' (3,3)) p' t; *)
